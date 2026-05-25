@@ -84,6 +84,7 @@ async function readSansekaiJson(response) {
 
 function providerApiBase(provider) {
   if (provider.sourceType === 'dramaku') return '/api/dramaku';
+  if (provider.sourceType?.startsWith('shivra')) return '/api/shivra';
   return provider.sourceType === 'hafizh' ? '/api/hafizh' : '/api/sansekai';
 }
 
@@ -100,6 +101,12 @@ export async function searchSansekai(provider, query) {
 
   if (provider.sourceType === 'dramaku') {
     const response = await fetch(`${providerApiBase(provider)}${provider.searchPath}?keyword=${encodeURIComponent(query)}&page=1&size=20&lang=in`);
+    return readSansekaiJson(response);
+  }
+
+  if (provider.sourceType?.startsWith('shivra')) {
+    const separator = provider.searchPath.includes('?') ? '&' : '?';
+    const response = await fetch(`${providerApiBase(provider)}${provider.searchPath}${separator}q=${encodeURIComponent(query)}`);
     return readSansekaiJson(response);
   }
 
@@ -120,6 +127,11 @@ export async function getSansekaiDetail(provider, item) {
     return readSansekaiJson(response);
   }
 
+  if (provider.sourceType?.startsWith('shivra')) {
+    const response = await fetch(`${providerApiBase(provider)}${provider.detailPath}/${encodeURIComponent(id)}`);
+    return readSansekaiJson(response);
+  }
+
   const response = await fetch(`${providerApiBase(provider)}${provider.detailPath}?${provider.idParam}=${encodeURIComponent(id)}`);
   return readSansekaiJson(response);
 }
@@ -137,6 +149,13 @@ export async function getSansekaiEpisode(provider, item, episodeNumber) {
 
   if (provider.sourceType === 'dramaku') {
     const response = await fetch(`${providerApiBase(provider)}${provider.episodePath}?bookId=${encodeURIComponent(id)}&episode=${encodeURIComponent(episodeNumber || 1)}&lang=in`);
+    return readSansekaiJson(response);
+  }
+
+  if (provider.sourceType?.startsWith('shivra')) {
+    const episodeEntry = item.sansekaiEpisodes?.find((entry) => Number(entry.number) === Number(episodeNumber || 1));
+    const slug = episodeEntry?.slug || episodeEntry?.raw?.slug || id;
+    const response = await fetch(`${providerApiBase(provider)}${provider.episodePath}/${encodeURIComponent(slug)}`);
     return readSansekaiJson(response);
   }
 

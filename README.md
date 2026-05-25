@@ -8,6 +8,7 @@ Sumber yang terpasang:
 - Dramaku API untuk katalog Dramabox berbasis kategori.
 - Hafizh DramaBox API untuk katalog DramaBox Indonesia.
 - Sansekai API untuk kategori app seperti DramaBox, PineDrama, ReelShort, ShortMax, GoodShort, FreeReels, DramaNova, Anime, dan MovieBox.
+- Shivra API untuk Anime Otakudesu dan Donghua Anichin, termasuk embed player episode.
 
 ## Menjalankan
 
@@ -28,4 +29,4 @@ INDOCAST_API_KEY=...
 PORT=8787
 ```
 
-Frontend selalu memanggil endpoint lokal `/api/...`, jadi key tidak ikut dibundle ke browser. Sansekai tidak memakai key di demo publiknya, tetapi upstream dapat mengembalikan `Forbidden` saat bandwidth/rate limit mereka sedang ditutup. Hafizh dan Dramaku saat dicek dapat memuat katalog/list, tetapi endpoint video kadang mengembalikan error upstream.
+Frontend selalu memanggil endpoint lokal `/api/...`, jadi key tidak ikut dibundle ke browser. Sansekai tidak memakai key di demo publiknya, tetapi upstream dapat mengembalikan `Forbidden` saat bandwidth/rate limit mereka sedang ditutup. Hafizh dan Dramaku saat dicek dapat memuat katalog/list, tetapi endpoint video kadang mengembalikan error upstream. Shivra saat dicek menyediakan list, detail, dan URL embed untuk player Anime/Donghua.

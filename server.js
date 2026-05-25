@@ -14,6 +14,7 @@ const indocastOrigin = 'https://indocast.site';
 const sansekaiOrigin = 'https://api.sansekai.my.id';
 const hafizhOrigin = 'https://db.hafizhibnusyam.my.id';
 const dramakuOrigin = 'https://api.dramaku.biz.id';
+const shivraOrigin = 'https://shivraapi.my.id';
 const apiKey = process.env.INDOCAST_API_KEY;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -181,6 +182,36 @@ async function proxyDramakuJsonRequest(req, res) {
   }
 }
 
+async function proxyShivraJsonRequest(req, res) {
+  const upstreamPath = req.originalUrl.replace(/^\/api\/shivra/, '');
+  const target = new URL(upstreamPath, shivraOrigin);
+
+  try {
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers: {
+        accept: 'application/json',
+        'user-agent': req.get('user-agent') || 'Nontoncuy/1.0',
+      },
+    });
+    const contentType = upstream.headers.get('content-type') || '';
+    const raw = await upstream.text();
+
+    res.status(upstream.status);
+    if (contentType.includes('application/json') || raw.trim().startsWith('{') || raw.trim().startsWith('[')) {
+      res.json(raw ? JSON.parse(raw) : {});
+      return;
+    }
+
+    res.type(contentType || 'text/plain').send(raw);
+  } catch (error) {
+    res.status(502).json({
+      message: 'Gagal menghubungi Shivra API',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function proxyStreamRequest(req, res) {
   if (!apiKey) {
     res.status(500).json({ message: 'INDOCAST_API_KEY belum diatur di .env' });
@@ -248,6 +279,7 @@ app.all('/api/stream', proxyStreamRequest);
 app.use('/api/sansekai', proxySansekaiJsonRequest);
 app.use('/api/hafizh', proxyHafizhJsonRequest);
 app.use('/api/dramaku', proxyDramakuJsonRequest);
+app.use('/api/shivra', proxyShivraJsonRequest);
 app.all('/api/filmbox/*path', proxyJsonRequest);
 
 const distPath = path.join(__dirname, 'dist');
@@ -261,3 +293,5 @@ if (fs.existsSync(distPath)) {
 app.listen(port, () => {
   console.log(`Nontoncuy API proxy listening on http://127.0.0.1:${port}`);
 });
+
+export default app;

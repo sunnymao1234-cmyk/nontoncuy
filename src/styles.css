@@ -542,11 +542,16 @@ img {
   border: 1px solid rgba(250, 249, 251, 0.16);
 }
 
-.video-stage video {
+.video-stage video,
+.video-stage iframe {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: #000000;
+}
+
+.video-stage iframe {
+  border: 0;
 }
 
 .icon-button {

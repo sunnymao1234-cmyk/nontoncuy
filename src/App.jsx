@@ -153,6 +153,7 @@ function PlayerPanel({ playback, title, poster, onClose }) {
 
   const videoUrl = playback.vid_url_proxy || playback.vid_url;
   const trackUrl = subtitleProxyUrl(playback.sub_url);
+  const useIframe = playback.playerType === 'iframe';
 
   return (
     <section className="player-band" id="player">
@@ -167,9 +168,19 @@ function PlayerPanel({ playback, title, poster, onClose }) {
           </button>
         </div>
         <div className="video-stage">
-          <video controls poster={poster || undefined} src={videoUrl} crossOrigin="anonymous">
-            {trackUrl ? <track kind="subtitles" srcLang="id" label="Indonesia" src={trackUrl} default /> : null}
-          </video>
+          {useIframe ? (
+            <iframe
+              title={title || 'Player'}
+              src={videoUrl}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          ) : (
+            <video controls poster={poster || undefined} src={videoUrl} crossOrigin="anonymous">
+              {trackUrl ? <track kind="subtitles" srcLang="id" label="Indonesia" src={trackUrl} default /> : null}
+            </video>
+          )}
         </div>
       </div>
     </section>
@@ -317,8 +328,8 @@ function SansekaiPanel({
     <section className="apps-band" id="apps">
       <div className="app-shell">
         <SectionHeader
-          eyebrow="DRAMA APP APIS"
-          title="Kategori dari app API."
+          eyebrow="APP APIS"
+          title="Kategori dari app streaming."
           action={
             <button className="ghost-button ink" type="button" onClick={onRefresh} disabled={loading}>
               {loading ? <LoaderCircle size={16} /> : <Sparkles size={16} />}
@@ -417,7 +428,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [subjectType, setSubjectType] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [sansekaiProviderId, setSansekaiProviderId] = useState('dramaku');
+  const [sansekaiProviderId, setSansekaiProviderId] = useState('shivra-anime');
   const [sansekaiItems, setSansekaiItems] = useState([]);
   const [sansekaiQuery, setSansekaiQuery] = useState('');
   const [sansekaiError, setSansekaiError] = useState('');
@@ -522,18 +533,18 @@ export default function App() {
 
         if (!streamUrl) {
           const episodePayload = await getSansekaiEpisode(provider, detailData, playEpisode);
-          streamUrl = extractStreamUrl(episodePayload);
+          streamUrl = extractStreamUrl(episodePayload, selectedQuality);
         }
 
         if (provider.streamPath && streamUrl) {
           const decrypted = await decryptSansekaiStream(provider, streamUrl);
-          streamUrl = extractStreamUrl(decrypted) || streamUrl;
+          streamUrl = extractStreamUrl(decrypted, selectedQuality) || streamUrl;
         }
 
         if (!streamUrl) throw new Error('Stream Sansekai belum tersedia untuk episode ini.');
 
-        setPlayback({ vid_url: streamUrl });
-        setNowPlaying(`${detailData.title} • Episode ${formatEpisodeLabel(playEpisode)}`);
+        setPlayback({ vid_url: streamUrl, playerType: provider.playerType });
+        setNowPlaying(`${detailData.title} - Episode ${formatEpisodeLabel(playEpisode)}`);
         setSelectedItem(null);
         window.setTimeout(() => document.getElementById('player')?.scrollIntoView({ behavior: 'smooth' }), 80);
         return;
@@ -551,7 +562,7 @@ export default function App() {
         quality: selectedQuality,
       });
       setPlayback(data);
-      setNowPlaying(`${detailData.title} • Episode ${formatEpisodeLabel(playEpisode)}`);
+      setNowPlaying(`${detailData.title} - Episode ${formatEpisodeLabel(playEpisode)}`);
       setSelectedItem(null);
       window.setTimeout(() => document.getElementById('player')?.scrollIntoView({ behavior: 'smooth' }), 80);
     } catch (err) {

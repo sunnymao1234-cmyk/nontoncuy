@@ -1,5 +1,31 @@
 export const sansekaiProviders = [
   {
+    id: 'shivra-anime',
+    label: 'Shivra Anime',
+    eyebrow: 'ANIME',
+    sourceType: 'shivra-otd',
+    listPath: '/otd/ongoing?page=1',
+    searchPath: '/otd/search',
+    idParam: 'slug',
+    detailPath: '/otd/anime',
+    episodePath: '/otd/episode',
+    idKeys: ['slug'],
+    playerType: 'iframe',
+  },
+  {
+    id: 'shivra-donghua',
+    label: 'Shivra Donghua',
+    eyebrow: 'DONGHUA',
+    sourceType: 'shivra-dnh',
+    listPath: '/dnh/ongoing?page=1',
+    searchPath: '/dnh/search?page=1',
+    idParam: 'slug',
+    detailPath: '/dnh/detail',
+    episodePath: '/dnh/episode',
+    idKeys: ['slug'],
+    playerType: 'iframe',
+  },
+  {
     id: 'dramaku',
     label: 'Dramaku',
     eyebrow: 'KATALOG',
@@ -133,6 +159,10 @@ const descriptionKeys = ['description', 'desc', 'summary', 'synopsis', 'introduc
 const episodeKeys = ['episodeNumber', 'episode', 'chapter', 'chapterNumber', 'number', 'index'];
 const streamKeys = ['url', 'video_url', 'videoUrl', 'stream', 'streamUrl', 'playUrl', 'm3u8', 'mp4', 'src'];
 
+function isShivraProvider(provider) {
+  return provider.sourceType?.startsWith('shivra');
+}
+
 function pick(object, keys) {
   if (!object || typeof object !== 'object') return '';
   for (const key of keys) {
@@ -160,12 +190,81 @@ function looksLikeMedia(object, provider) {
   return Boolean(pick(object, titleKeys) && (pick(object, imageKeys) || pick(object, provider.idKeys)));
 }
 
+function parseEpisodeNumber(value, fallback = 1) {
+  const text = String(value || '');
+  const episodeMatch = text.match(/episode\s*(\d+)/i);
+  const slugMatch = text.match(/(?:^|-)(\d+)(?:-|$)/);
+  return Number(episodeMatch?.[1] || slugMatch?.[1] || fallback);
+}
+
+function joinTags(value, fallback = '') {
+  if (Array.isArray(value)) return value.filter(Boolean).join(', ');
+  return value || fallback;
+}
+
+function normalizeShivraItems(payload, provider) {
+  const buckets = [
+    payload?.data?.list,
+    payload?.data?.latest_release,
+    payload?.data?.latest,
+    payload?.data?.popular_today,
+    payload?.data?.recommendation,
+    payload?.data?.slider,
+    Array.isArray(payload?.data) ? payload.data : null,
+  ];
+  const items = buckets.find((bucket) => Array.isArray(bucket)) || [];
+
+  return items.map((object, index) => {
+    const id = String(object.slug || `${provider.id}-${index}`);
+    const episodeNumber = parseEpisodeNumber(object.episode || object.title || object.slug, 0);
+
+    return {
+      source: 'sansekai',
+      provider: provider.id,
+      providerLabel: provider.label,
+      subjectId: id,
+      detailPath: id,
+      title: String(object.title || 'Tanpa judul'),
+      description: String(object.synopsis || object.description || ''),
+      cover_url: String(object.cover || object.thumbnail || ''),
+      genre: joinTags(object.genres || object.genre || object.tags, object.type || provider.eyebrow),
+      rating: object.rating || object.skor || '',
+      releaseDate: object.date || object.release_date || object.released_on || '',
+      totalEpisode: episodeNumber,
+      raw: object,
+    };
+  });
+}
+
+function normalizeShivraEpisodes(data, provider) {
+  const episodes = provider.sourceType === 'shivra-otd' ? data?.episode_list : data?.episodes;
+
+  return (episodes || [])
+    .map((object, index) => {
+      const title = object.title || `Episode ${object.episode || index + 1}`;
+      const number = Number(object.episode) || parseEpisodeNumber(title || object.slug, index + 1);
+
+      return {
+        number,
+        slug: String(object.slug || ''),
+        title: String(title),
+        date: object.date || object.release_date || '',
+        raw: object,
+      };
+    })
+    .filter((episode) => episode.slug);
+}
+
 export function getSansekaiProvider(providerId) {
   return sansekaiProviders.find((provider) => provider.id === providerId) || sansekaiProviders[0];
 }
 
 export function normalizeSansekaiItems(payload, provider) {
   const seen = new Set();
+
+  if (isShivraProvider(provider)) {
+    return normalizeShivraItems(payload, provider);
+  }
 
   if (provider.sourceType === 'hafizh') {
     return (payload?.data || []).map((object, index) => ({
@@ -236,6 +335,28 @@ export function normalizeSansekaiItems(payload, provider) {
 }
 
 export function normalizeSansekaiDetail(payload, provider, fallback) {
+  if (isShivraProvider(provider)) {
+    const data = payload?.data || fallback.raw || fallback;
+    const episodes = normalizeShivraEpisodes(data, provider);
+    const episodeCount = Number(data.total_episode || data.total_episodes || episodes.length || fallback.totalEpisode || 1);
+
+    return {
+      ...fallback,
+      source: 'sansekai',
+      provider: provider.id,
+      providerLabel: provider.label,
+      title: String(data.title || fallback.title),
+      description: String(data.synopsis || data.description || fallback.description || ''),
+      cover_url: String(data.cover || fallback.cover_url || ''),
+      genre: joinTags(data.genre || data.genres, fallback.genre || provider.eyebrow),
+      rating: data.skor || data.rating || fallback.rating || '',
+      releaseDate: data.tanggal_rilis || data.released || data.release_date || fallback.releaseDate || '',
+      totalEpisode: episodeCount,
+      sansekaiEpisodes: episodes.length ? episodes : [{ number: 1, slug: data.slug || fallback.detailPath }],
+      raw: data,
+    };
+  }
+
   if (provider.sourceType === 'hafizh') {
     const data = payload?.data && !payload.detail ? payload.data : fallback.raw || fallback;
     const episodeCount = Number(data.episode_count || fallback.totalEpisode || 1);
@@ -318,7 +439,18 @@ export function normalizeSansekaiEpisodes(payload) {
     .slice(0, 120);
 }
 
-export function extractStreamUrl(payload) {
+export function extractStreamUrl(payload, preferredQuality = '') {
+  const shivraData = payload?.data;
+  if (shivraData?.defaultstream || shivraData?.embed || shivraData?.stream || shivraData?.servers) {
+    const quality = String(preferredQuality || '').replace('p', '');
+    const streamGroups = Array.isArray(shivraData.stream) ? shivraData.stream : [];
+    const selectedGroup = streamGroups.find((group) => String(group.quality || '').includes(quality)) || streamGroups[0];
+    const providerUrl = selectedGroup?.providers?.find((entry) => entry.url)?.url || selectedGroup?.url;
+    const serverUrl = Array.isArray(shivraData.servers) ? shivraData.servers.find((entry) => entry.src)?.src : '';
+
+    return String(providerUrl || shivraData.defaultstream || shivraData.embed || serverUrl || '');
+  }
+
   const dramakuData = payload?.data;
   if (dramakuData) {
     if (typeof dramakuData === 'string') return dramakuData;
