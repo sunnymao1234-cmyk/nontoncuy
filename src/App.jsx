@@ -1,5 +1,6 @@
 import {
   Calendar,
+  ChevronLeft,
   ChevronRight,
   Clapperboard,
   Eye,
@@ -89,6 +90,17 @@ function getEpisodes(details) {
 
 function formatEpisodeLabel(episode) {
   return Number(episode) === 0 ? 1 : episode;
+}
+
+function flattenEpisodes(details) {
+  return getEpisodes(details).flatMap((group) =>
+    group.episodes.map((episode) => ({
+      season: group.season,
+      groupLabel: group.label || 'Film',
+      episode,
+      label: formatEpisodeLabel(episode),
+    })),
+  );
 }
 
 function Badge({ icon: Icon, children }) {
@@ -182,6 +194,77 @@ function PlayerPanel({ playback, title, poster, onClose }) {
               {trackUrl ? <track kind="subtitles" srcLang="id" label="Indonesia" src={trackUrl} default /> : null}
             </video>
           )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WatchPage({ playback, title, poster, watchSession, loading, onClose, onNavigateEpisode }) {
+  const [jumpValue, setJumpValue] = useState('');
+  const episodes = useMemo(() => flattenEpisodes(watchSession?.detailData), [watchSession]);
+  const currentIndex = episodes.findIndex(
+    (entry) => Number(entry.season) === Number(watchSession?.season) && Number(entry.episode) === Number(watchSession?.episode),
+  );
+  const currentEpisode = episodes[currentIndex];
+  const previousEpisode = currentIndex > 0 ? episodes[currentIndex - 1] : null;
+  const nextEpisode = currentIndex >= 0 && currentIndex < episodes.length - 1 ? episodes[currentIndex + 1] : null;
+
+  useEffect(() => {
+    setJumpValue(currentEpisode ? String(currentEpisode.label) : '');
+  }, [currentEpisode]);
+
+  function submitJump(event) {
+    event.preventDefault();
+    const requested = Number(jumpValue);
+    if (!Number.isFinite(requested)) return;
+    const target = episodes.find((entry) => Number(entry.label) === requested || Number(entry.episode) === requested);
+    if (target) onNavigateEpisode(target.season, target.episode);
+  }
+
+  return (
+    <section className="watch-page" id="player">
+      <div className="app-shell watch-shell">
+        <div className="watch-header">
+          <button className="ghost-button light" type="button" onClick={onClose}>
+            <ChevronLeft size={16} />
+            Kembali
+          </button>
+          <div>
+            <p className="eyebrow">SEDANG DIPUTAR</p>
+            <h1>{title || watchSession?.detailData?.title || 'Player'}</h1>
+          </div>
+        </div>
+
+        <PlayerPanel playback={playback} title={title} poster={poster} onClose={onClose} />
+
+        <div className="watch-controls">
+          <button className="pagination-button" type="button" disabled={!previousEpisode || loading} onClick={() => onNavigateEpisode(previousEpisode.season, previousEpisode.episode)}>
+            <ChevronLeft size={18} />
+            Previous Episode
+          </button>
+
+          <form className="episode-jump" onSubmit={submitJump}>
+            <label htmlFor="episode-jump">Episode</label>
+            <input
+              id="episode-jump"
+              inputMode="numeric"
+              min="1"
+              type="number"
+              value={jumpValue}
+              onChange={(event) => setJumpValue(event.target.value)}
+              disabled={loading || episodes.length <= 1}
+            />
+            <button className="primary-button" type="submit" disabled={loading || episodes.length <= 1}>
+              {loading ? <LoaderCircle size={16} /> : <Play size={16} />}
+              Go
+            </button>
+          </form>
+
+          <button className="pagination-button" type="button" disabled={!nextEpisode || loading} onClick={() => onNavigateEpisode(nextEpisode.season, nextEpisode.episode)}>
+            Next Episode
+            <ChevronRight size={18} />
+          </button>
         </div>
       </div>
     </section>
@@ -426,6 +509,7 @@ export default function App() {
   const [detailError, setDetailError] = useState('');
   const [playback, setPlayback] = useState(null);
   const [nowPlaying, setNowPlaying] = useState(null);
+  const [watchSession, setWatchSession] = useState(null);
   const [query, setQuery] = useState('');
   const [subjectType, setSubjectType] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -547,8 +631,10 @@ export default function App() {
 
         setPlayback({ vid_url: streamUrl, playerType: provider.playerType });
         setNowPlaying(`${detailData.title} - Episode ${formatEpisodeLabel(playEpisode)}`);
+        setWatchSession({ item: source, detailData, season: 1, episode: playEpisode });
+        setCurrentPage('watch');
         setSelectedItem(null);
-        window.setTimeout(() => document.getElementById('player')?.scrollIntoView({ behavior: 'smooth' }), 80);
+        window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
         return;
       }
 
@@ -565,13 +651,27 @@ export default function App() {
       });
       setPlayback(data);
       setNowPlaying(`${detailData.title} - Episode ${formatEpisodeLabel(playEpisode)}`);
+      setWatchSession({ item: source, detailData, season: playSeason, episode: playEpisode });
+      setCurrentPage('watch');
       setSelectedItem(null);
-      window.setTimeout(() => document.getElementById('player')?.scrollIntoView({ behavior: 'smooth' }), 80);
+      window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 80);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setPlaybackLoading(false);
     }
+  }
+
+  function closeWatchPage() {
+    setPlayback(null);
+    setNowPlaying(null);
+    setWatchSession(null);
+    setCurrentPage('home');
+  }
+
+  async function navigateWatchEpisode(season, episode) {
+    if (!watchSession?.detailData) return;
+    await playItem(watchSession.detailData, season, episode);
   }
 
   async function submitSearch(event) {
@@ -629,9 +729,9 @@ export default function App() {
         <div className="nav-links" aria-label="Navigasi utama">
           <a href="#trending" onClick={() => setCurrentPage('home')}>Trending</a>
           <a href="#all-movies" onClick={() => setCurrentPage('browse')}>All Movies</a>
-          <a href="#apps">Apps</a>
-          <a href="#search">Search</a>
-          <a href="#player">Player</a>
+          <a href="#apps" onClick={() => setCurrentPage('home')}>Apps</a>
+          <a href="#search" onClick={() => setCurrentPage('home')}>Search</a>
+          <a href="#player" onClick={() => playback && setCurrentPage('watch')}>Player</a>
         </div>
         <a className="nav-cta" href="#all-movies" onClick={() => setCurrentPage('browse')}>
           <Film size={16} />
@@ -640,77 +740,91 @@ export default function App() {
       </nav>
 
       <main id="top">
-        <Hero item={heroItem} loading={playbackLoading || appLoading} onPlay={playItem} onSelect={openDetails} />
-
-        {error ? (
-          <div className="app-shell">
-            <div className="error-banner">
-              <Sparkles size={18} />
-              {error}
-            </div>
-          </div>
-        ) : null}
-
-        <PlayerPanel
-          playback={playback}
-          title={nowPlaying}
-          poster={details?.cover_url || heroItem?.cover_url}
-          onClose={() => {
-            setPlayback(null);
-            setNowPlaying(null);
-          }}
-        />
-
-        <section className="content-band" id="trending">
-          <div className="app-shell">
-            <SectionHeader eyebrow="SEDANG RAMAI" title="Trending minggu ini." />
-            {appLoading ? (
-              <div className="loading-grid">
-                {Array.from({ length: 8 }, (_, index) => (
-                  <div className="poster-skeleton" key={index} />
-                ))}
+        {currentPage === 'watch' ? (
+          <>
+            {error ? (
+              <div className="app-shell">
+                <div className="error-banner">
+                  <Sparkles size={18} />
+                  {error}
+                </div>
               </div>
-            ) : (
-              <div className="poster-row">
-                {trending.map((item) => (
-                  <PosterCard key={`${item.subjectId}-${item.detailPath}`} item={item} onSelect={openDetails} />
-                ))}
+            ) : null}
+            <WatchPage
+              playback={playback}
+              title={nowPlaying}
+              poster={watchSession?.detailData?.cover_url || details?.cover_url || heroItem?.cover_url}
+              watchSession={watchSession}
+              loading={playbackLoading}
+              onClose={closeWatchPage}
+              onNavigateEpisode={navigateWatchEpisode}
+            />
+          </>
+        ) : (
+          <>
+            <Hero item={heroItem} loading={playbackLoading || appLoading} onPlay={playItem} onSelect={openDetails} />
+
+            {error ? (
+              <div className="app-shell">
+                <div className="error-banner">
+                  <Sparkles size={18} />
+                  {error}
+                </div>
               </div>
-            )}
-          </div>
-        </section>
+            ) : null}
 
-        {currentPage === 'browse' && <BrowsePage onSelect={openDetails} />}
+            <section className="content-band" id="trending">
+              <div className="app-shell">
+                <SectionHeader eyebrow="SEDANG RAMAI" title="Trending minggu ini." />
+                {appLoading ? (
+                  <div className="loading-grid">
+                    {Array.from({ length: 8 }, (_, index) => (
+                      <div className="poster-skeleton" key={index} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="poster-row">
+                    {trending.map((item) => (
+                      <PosterCard key={`${item.subjectId}-${item.detailPath}`} item={item} onSelect={openDetails} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
 
-        <SansekaiPanel
-          provider={sansekaiProvider}
-          providerId={sansekaiProviderId}
-          setProviderId={setSansekaiProviderId}
-          query={sansekaiQuery}
-          setQuery={setSansekaiQuery}
-          loading={sansekaiLoading}
-          searchLoading={sansekaiSearchLoading}
-          error={sansekaiError}
-          items={sansekaiItems}
-          onRefresh={() => loadSansekai(sansekaiProvider)}
-          onSearch={submitSansekaiSearch}
-          onSelect={openDetails}
-        />
+            {currentPage === 'browse' && <BrowsePage onSelect={openDetails} />}
 
-        <SearchPanel
-          query={query}
-          setQuery={setQuery}
-          subjectType={subjectType}
-          setSubjectType={setSubjectType}
-          loading={searchLoading}
-          results={searchResults}
-          onSubmit={submitSearch}
-          onSelect={openDetails}
-        />
+            <SansekaiPanel
+              provider={sansekaiProvider}
+              providerId={sansekaiProviderId}
+              setProviderId={setSansekaiProviderId}
+              query={sansekaiQuery}
+              setQuery={setSansekaiQuery}
+              loading={sansekaiLoading}
+              searchLoading={sansekaiSearchLoading}
+              error={sansekaiError}
+              items={sansekaiItems}
+              onRefresh={() => loadSansekai(sansekaiProvider)}
+              onSearch={submitSansekaiSearch}
+              onSelect={openDetails}
+            />
 
-        {rows.map((row) => (
-          <PosterRow key={row.title} {...row} onSelect={openDetails} />
-        ))}
+            <SearchPanel
+              query={query}
+              setQuery={setQuery}
+              subjectType={subjectType}
+              setSubjectType={setSubjectType}
+              loading={searchLoading}
+              results={searchResults}
+              onSubmit={submitSearch}
+              onSelect={openDetails}
+            />
+
+            {rows.map((row) => (
+              <PosterRow key={row.title} {...row} onSelect={openDetails} />
+            ))}
+          </>
+        )}
       </main>
 
       <DetailDrawer

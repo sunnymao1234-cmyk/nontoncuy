@@ -1,8 +1,9 @@
 import { Calendar, ChevronLeft, ChevronRight, Film, LoaderCircle, Star } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllMovies } from './api.js';
 
 const perPage = 20;
+const pagesPerChunk = 3;
 
 function formatYear(value) {
   if (!value) return '';
@@ -46,34 +47,54 @@ function MovieCard({ item, onSelect }) {
 
 export default function BrowsePage({ onSelect }) {
   const [page, setPage] = useState(0);
-  const [items, setItems] = useState([]);
+  const [pageCache, setPageCache] = useState({});
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loadingPages, setLoadingPages] = useState([]);
   const [error, setError] = useState('');
+  const cacheRef = useRef({});
+  const items = pageCache[page] || [];
+  const loading = !pageCache[page] && loadingPages.length > 0;
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadItems() {
-      setLoading(true);
+    async function loadChunk(startPage, showLoader = true) {
+      const pages = Array.from({ length: pagesPerChunk }, (_, index) => startPage + index).filter((entry) => entry >= 0);
+      const missingPages = pages.filter((entry) => !cacheRef.current[entry]);
+      if (!missingPages.length) return;
+
+      if (showLoader) setLoadingPages(missingPages);
       setError('');
 
       try {
-        const data = await getAllMovies(page, perPage);
+        const results = await Promise.all(missingPages.map((entry) => getAllMovies(entry, perPage)));
         if (cancelled) return;
-        setItems(data.items || []);
-        setTotalPages(getTotalPages(data));
+
+        setPageCache((current) => {
+          const next = { ...current };
+          results.forEach((data, index) => {
+            next[missingPages[index]] = data.items || [];
+          });
+          cacheRef.current = next;
+          return next;
+        });
+        setTotalPages((current) => Math.max(current, ...results.map(getTotalPages)));
       } catch (err) {
         if (!cancelled) {
-          setItems([]);
           setError(err instanceof Error ? err.message : String(err));
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && showLoader) setLoadingPages([]);
       }
     }
 
-    loadItems();
+    const currentChunkStart = Math.floor(page / pagesPerChunk) * pagesPerChunk;
+    loadChunk(currentChunkStart, true);
+
+    if (page % pagesPerChunk === pagesPerChunk - 1) {
+      loadChunk(currentChunkStart + pagesPerChunk, false);
+    }
+
     return () => {
       cancelled = true;
     };
@@ -115,14 +136,14 @@ export default function BrowsePage({ onSelect }) {
             </div>
 
             <div className="pagination" aria-label="All Movies pagination">
-              <button className="pagination-button" type="button" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>
+              <button className="pagination-button" type="button" disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>
                 <ChevronLeft size={18} />
                 Previous
               </button>
               <span className="pagination-info">
                 Page {page + 1}{totalPages > 1 ? ` of ${totalPages}` : ''}
               </span>
-              <button className="pagination-button" type="button" disabled={!canGoNext || loading} onClick={() => setPage((value) => value + 1)}>
+              <button className="pagination-button" type="button" disabled={!canGoNext} onClick={() => setPage((value) => value + 1)}>
                 Next
                 <ChevronRight size={18} />
               </button>

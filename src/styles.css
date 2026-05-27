@@ -530,6 +530,96 @@ img {
   color: var(--color-cream-canvas);
 }
 
+.watch-page {
+  min-height: calc(100svh - 72px);
+  padding: 48px 0 72px;
+  background: var(--color-aubergine-ink);
+  color: var(--color-cream-canvas);
+}
+
+.watch-shell {
+  display: grid;
+  gap: 24px;
+}
+
+.watch-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 24px;
+}
+
+.watch-header h1 {
+  max-width: 980px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-tobias);
+  font-size: 52px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.watch-page .player-band {
+  padding: 0;
+  background: transparent;
+}
+
+.watch-page .player-shell {
+  width: 100%;
+  padding: 0;
+}
+
+.watch-page .player-heading {
+  display: none;
+}
+
+.watch-page .video-stage {
+  border-radius: var(--radius-images);
+}
+
+.watch-controls {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 340px) auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.episode-jump {
+  display: grid;
+  grid-template-columns: auto minmax(82px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(250, 249, 251, 0.16);
+  border-radius: 14px;
+  background: rgba(250, 249, 251, 0.06);
+}
+
+.episode-jump label {
+  color: rgba(250, 249, 251, 0.74);
+  font-size: 14px;
+}
+
+.episode-jump input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(250, 249, 251, 0.18);
+  border-radius: 10px;
+  background: var(--color-deep-plum);
+  color: var(--color-cream-canvas);
+  text-align: center;
+}
+
+.episode-jump .primary-button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border-color: var(--color-cream-canvas);
+  background: var(--color-cream-canvas);
+  color: var(--color-aubergine-ink);
+}
+
 .player-shell {
   display: grid;
   gap: 24px;
@@ -902,9 +992,20 @@ img {
   color: var(--color-aubergine-ink);
 }
 
+.watch-controls .pagination-button {
+  border-color: rgba(250, 249, 251, 0.4);
+  background: transparent;
+  color: var(--color-cream-canvas);
+}
+
 .pagination-button:hover:not(:disabled) {
   background: var(--color-aubergine-ink);
   color: var(--color-cream-canvas);
+}
+
+.watch-controls .pagination-button:hover:not(:disabled) {
+  background: var(--color-cream-canvas);
+  color: var(--color-aubergine-ink);
 }
 
 .pagination-info {
@@ -962,6 +1063,15 @@ img {
     justify-self: stretch;
   }
 
+  .watch-header,
+  .watch-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .watch-header h1 {
+    font-size: 44px;
+  }
+
   .loading-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -996,7 +1106,8 @@ img {
   .search-band,
   .apps-band,
   .browse-band,
-  .player-band {
+  .player-band,
+  .watch-page {
     padding-top: 48px;
     padding-bottom: 48px;
   }
@@ -1061,5 +1172,9 @@ img {
   .pagination {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .episode-jump {
+    grid-template-columns: 1fr;
   }
 }
