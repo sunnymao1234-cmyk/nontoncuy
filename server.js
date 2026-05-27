@@ -290,8 +290,13 @@ if (fs.existsSync(distPath)) {
   });
 }
 
-app.listen(port, () => {
-  console.log(`Nontoncuy API proxy listening on http://127.0.0.1:${port}`);
-});
+const isEntrypoint = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntrypoint) {
+  const server = app.listen(port, () => {
+    console.log(`Nontoncuy API proxy listening on http://127.0.0.1:${port}`);
+  });
+  globalThis.nontoncuyServer = server;
+}
 
 export default app;

@@ -26,6 +26,7 @@ import {
   searchTitles,
   subtitleProxyUrl,
 } from './api.js';
+import BrowsePage from './BrowsePage.jsx';
 import {
   extractStreamUrl,
   getSansekaiProvider,
@@ -440,6 +441,7 @@ export default function App() {
   const [sansekaiSearchLoading, setSansekaiSearchLoading] = useState(false);
   const [playbackLoading, setPlaybackLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState('home');
   const heroItem = home?.hero_banners?.[0] || trending?.[0] || firstItems(home?.content_sections)[0];
   const sansekaiProvider = useMemo(() => getSansekaiProvider(sansekaiProviderId), [sansekaiProviderId]);
 
@@ -625,14 +627,15 @@ export default function App() {
           Nontoncuy
         </a>
         <div className="nav-links" aria-label="Navigasi utama">
-          <a href="#trending">Trending</a>
+          <a href="#trending" onClick={() => setCurrentPage('home')}>Trending</a>
+          <a href="#all-movies" onClick={() => setCurrentPage('browse')}>All Movies</a>
           <a href="#apps">Apps</a>
           <a href="#search">Search</a>
           <a href="#player">Player</a>
         </div>
-        <a className="nav-cta" href="#search">
-          <Search size={16} />
-          Cari
+        <a className="nav-cta" href="#all-movies" onClick={() => setCurrentPage('browse')}>
+          <Film size={16} />
+          All Movies
         </a>
       </nav>
 
@@ -676,6 +679,8 @@ export default function App() {
             )}
           </div>
         </section>
+
+        {currentPage === 'browse' && <BrowsePage onSelect={openDetails} />}
 
         <SansekaiPanel
           provider={sansekaiProvider}

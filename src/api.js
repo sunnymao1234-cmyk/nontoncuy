@@ -23,6 +23,16 @@ export async function getTrending(page = 0, perPage = 18) {
   return readJson(response);
 }
 
+export async function getAllMovies(page = 0, perPage = 20) {
+  const params = new URLSearchParams({
+    page: String(page),
+    perPage: String(perPage),
+    subjectType: '1',
+  });
+  const response = await fetch(`/api/filmbox/trending?${params}`);
+  return readJson(response);
+}
+
 export async function searchTitles({ keyword, page = 1, perPage = 18, subjectType = '' }) {
   const body = {
     keyword,

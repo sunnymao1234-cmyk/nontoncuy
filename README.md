@@ -20,6 +20,10 @@ npm run dev
 Frontend: `http://127.0.0.1:5173`  
 Proxy API: `http://127.0.0.1:8787`
 
+## Deploy Vercel
+
+Endpoint `/api/*` dijalankan lewat Vercel Serverless Function di `api/[...path].js`. Express tetap dipakai sebagai handler, tetapi `app.listen()` hanya aktif saat `node server.js` dijalankan lokal.
+
 ## Konfigurasi
 
 API key dibaca server dari `.env`:
